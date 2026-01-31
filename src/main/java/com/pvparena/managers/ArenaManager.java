@@ -20,7 +20,8 @@ public class ArenaManager {
     private final int arenaSpacing;
     private final Set<ArenaCoordinate> usedCoordinates;
     private final Map<ArenaCoordinate, Long> coordinateCooldowns;
-    private final Map<Arena, ArenaCoordinate> arenaCoordinateMap; // Track arena coordinates by Arena object
+    private final Map<Arena, ArenaCoordinate> arenaCoordinateMap;
+    private final Map<Arena, Location[]> arenaSpawnPoints; // Store spawn points per arena
     private final long cleanupDelay;
 
     public ArenaManager(Plugin plugin, SchematicManager schematicManager, World pvpWorld) {
@@ -30,10 +31,11 @@ public class ArenaManager {
         this.usedCoordinates = new HashSet<>();
         this.coordinateCooldowns = new HashMap<>();
         this.arenaCoordinateMap = new HashMap<>();
+        this.arenaSpawnPoints = new HashMap<>();
 
         // Load config values
         this.arenaSpacing = plugin.getConfig().getInt("arena-spacing", 1000);
-        this.cleanupDelay = plugin.getConfig().getInt("arena-cleanup-delay", 30) * 1000L; // Convert to milliseconds
+        this.cleanupDelay = plugin.getConfig().getInt("arena-cleanup-delay", 30) * 1000L;
 
         plugin.getLogger().info("ArenaManager initialized with schematic support");
         plugin.getLogger().info("Arena spacing: " + arenaSpacing + " blocks");
@@ -55,41 +57,35 @@ public class ArenaManager {
      * @return Arena object with spawn points, or null on failure
      */
     public Arena createArena(String schematicName, String gameMode) {
-        // Check if WorldEdit is available
         if (!schematicManager.isWorldEditAvailable()) {
             plugin.getLogger().severe("WorldEdit is not installed! Cannot create arenas.");
             return null;
         }
 
-        // Check if schematics are available
         if (schematicManager.getSchematicCount() == 0) {
             plugin.getLogger().warning("No schematics available! Add .schem files to plugins/" +
                     plugin.getName() + "/arenas/");
             return null;
         }
 
-        // Check if pvpWorld is available
         if (pvpWorld == null) {
             plugin.getLogger().warning("PVP world is not available! Cannot create arena.");
             return null;
         }
 
-        // Find available coordinates
         ArenaCoordinate coordinates = findAvailableCoordinates();
         if (coordinates == null) {
             plugin.getLogger().warning("Could not find available coordinates for arena");
             return null;
         }
 
-        // Get location to paste schematic
         Location pasteLocation = new Location(
                 pvpWorld,
                 coordinates.getX(),
-                64, // Base Y level
+                64,
                 coordinates.getZ()
         );
 
-        // Paste the schematic
         SchematicManager.SchematicDimensions dimensions;
         if (schematicName != null) {
             java.io.File schematic = schematicManager.getSchematic(schematicName);
@@ -103,17 +99,16 @@ public class ArenaManager {
             return null;
         }
 
-        // Mark coordinates as used
         usedCoordinates.add(coordinates);
 
-        // Calculate spawn points based on schematic dimensions
+        // Calculate spawn points - FIXED for 30x30 arena
         Location[] spawnPoints = calculateSpawnPoints(pasteLocation, dimensions);
 
         plugin.getLogger().info("Created arena at " + coordinates +
                 " (dimensions: " + dimensions.getWidth() + "x" + dimensions.getHeight() + "x" + dimensions.getLength() + ")");
+        plugin.getLogger().info("Spawn 1: " + spawnPoints[0].getBlockX() + ", " + spawnPoints[0].getBlockY() + ", " + spawnPoints[0].getBlockZ());
+        plugin.getLogger().info("Spawn 2: " + spawnPoints[1].getBlockX() + ", " + spawnPoints[1].getBlockY() + ", " + spawnPoints[1].getBlockZ());
 
-        // Create Arena using the actual constructor: Arena(UUID, Location, String)
-        // We'll use the center location between the two spawn points
         Location centerLocation = spawnPoints[0].clone().add(
                 (spawnPoints[1].getX() - spawnPoints[0].getX()) / 2,
                 0,
@@ -124,23 +119,30 @@ public class ArenaManager {
         String arenaGameMode = gameMode != null ? gameMode : "default";
         Arena arena = new Arena(arenaId, centerLocation, arenaGameMode);
 
-        // Store the coordinates mapping for cleanup
         arenaCoordinateMap.put(arena, coordinates);
+        arenaSpawnPoints.put(arena, spawnPoints); // Store spawn points
 
         return arena;
     }
 
     /**
+     * Get spawn points for an arena
+     */
+    public Location[] getSpawnPoints(Arena arena) {
+        return arenaSpawnPoints.get(arena);
+    }
+
+    /**
      * Calculate spawn points based on schematic dimensions
-     * Default: Places spawns at 1/4 and 3/4 of the arena width, centered on Z
+     * FIXED: For 30x30 arena, spawns are now correctly inside the arena
      */
     private Location[] calculateSpawnPoints(Location baseLocation, SchematicManager.SchematicDimensions dimensions) {
         ConfigurationSection spawnConfig = plugin.getConfig().getConfigurationSection("arena.spawn-points");
 
-        // Get center of the arena
+        // Center of the pasted schematic
         int centerX = baseLocation.getBlockX();
         int centerZ = baseLocation.getBlockZ();
-        int baseY = baseLocation.getBlockY() + 1; // One block above the base
+        int baseY = baseLocation.getBlockY() + 2; // 2 blocks above floor
 
         Location spawn1, spawn2;
 
@@ -160,20 +162,19 @@ public class ArenaManager {
                     centerZ + spawnConfig.getInt("point2.z")
             );
         } else {
-            // Auto-calculate spawn points based on schematic size
-            int quarterWidth = dimensions.getWidth() / 4;
-
+            // Auto-calculate: For 30x30, place spawns 10 blocks apart from center
+            // This keeps both spawns well inside the arena
             spawn1 = new Location(
                     pvpWorld,
-                    centerX - quarterWidth,
-                    baseY + 2,
+                    centerX - 10, // 10 blocks west of center
+                    baseY,
                     centerZ
             );
 
             spawn2 = new Location(
                     pvpWorld,
-                    centerX + quarterWidth,
-                    baseY + 2,
+                    centerX + 10, // 10 blocks east of center
+                    baseY,
                     centerZ
             );
         }
@@ -181,16 +182,11 @@ public class ArenaManager {
         return new Location[]{spawn1, spawn2};
     }
 
-    /**
-     * Find available coordinates for a new arena
-     */
     private ArenaCoordinate findAvailableCoordinates() {
-        // Clean up expired cooldowns
         long currentTime = System.currentTimeMillis();
         coordinateCooldowns.entrySet().removeIf(entry ->
                 currentTime - entry.getValue() > cleanupDelay);
 
-        // Try to find coordinates in a grid pattern
         int maxAttempts = 100;
         int gridSize = arenaSpacing;
 
@@ -209,38 +205,26 @@ public class ArenaManager {
         return null;
     }
 
-    /**
-     * Delete an arena (marks coordinates as available after cooldown)
-     * @param arena The arena to delete
-     */
     public void deleteArena(Arena arena) {
         if (arena == null) return;
 
-        // Get coordinates from our mapping
         ArenaCoordinate coords = arenaCoordinateMap.get(arena);
 
         if (coords != null) {
             usedCoordinates.remove(coords);
             coordinateCooldowns.put(coords, System.currentTimeMillis());
             arenaCoordinateMap.remove(arena);
+            arenaSpawnPoints.remove(arena); // Clean up spawn points
 
             plugin.getLogger().info("Arena at " + coords +
                     " marked for cleanup (cooldown: " + (cleanupDelay / 1000) + "s)");
-        } else {
-            plugin.getLogger().warning("Could not find coordinates for arena to delete");
         }
     }
 
-    /**
-     * Get the number of active arenas
-     */
     public int getActiveArenaCount() {
         return usedCoordinates.size();
     }
 
-    /**
-     * Arena coordinate data class
-     */
     private static class ArenaCoordinate {
         private final int x;
         private final int z;

@@ -33,18 +33,18 @@ public class MatchManager {
             player2.sendMessage("§cFailed to create arena!");
             return;
         }
-        
+
         // Create match
         Match match = new Match(UUID.randomUUID(), player1, player2, arena, gameMode);
         activeMatches.put(match.getMatchId(), match);
         playerMatches.put(player1.getUniqueId(), match.getMatchId());
         playerMatches.put(player2.getUniqueId(), match.getMatchId());
-        
-        // Notify players
+
+        // Notify players - they stay where they are during this message
         player1.sendMessage(plugin.getConfigManager().getMessage("match-found"));
         player2.sendMessage(plugin.getConfigManager().getMessage("match-found"));
-        
-        // Teleport players and start match
+
+        // Wait 1 second, then teleport and start match
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             startMatch(match);
         }, 20L);
@@ -54,28 +54,38 @@ public class MatchManager {
         Player player1 = match.getPlayer1();
         Player player2 = match.getPlayer2();
         Arena arena = match.getArena();
-        
+
         if (player1 == null || !player1.isOnline() || player2 == null || !player2.isOnline()) {
             endMatch(match, null);
             return;
         }
-        
-        // Get spawn points
-        Location spawn1 = plugin.getConfigManager().getSpawnPoint1(arena.getCenter());
-        Location spawn2 = plugin.getConfigManager().getSpawnPoint2(arena.getCenter());
-        
+
+        // Get spawn points from ArenaManager
+        Location[] spawnPoints = plugin.getArenaManager().getSpawnPoints(arena);
+
+        Location spawn1, spawn2;
+        if (spawnPoints != null && spawnPoints.length >= 2) {
+            // Use schematic-based spawn points
+            spawn1 = spawnPoints[0];
+            spawn2 = spawnPoints[1];
+        } else {
+            // Fallback to config-based spawn points
+            spawn1 = plugin.getConfigManager().getSpawnPoint1(arena.getCenter());
+            spawn2 = plugin.getConfigManager().getSpawnPoint2(arena.getCenter());
+        }
+
         // Prepare players
         preparePlayer(player1);
         preparePlayer(player2);
-        
-        // Teleport players
+
+        // Teleport players to arena NOW (not during queue)
         player1.teleport(spawn1);
         player2.teleport(spawn2);
-        
+
         // Give kits
         giveKit(player1, match.getGameMode());
         giveKit(player2, match.getGameMode());
-        
+
         // Start countdown
         startCountdown(match);
     }
@@ -88,17 +98,17 @@ public class MatchManager {
         player.getInventory().clear();
         player.getInventory().setArmorContents(new ItemStack[4]);
         player.setGameMode(GameMode.SURVIVAL);
-        player.getActivePotionEffects().forEach(effect -> 
-            player.removePotionEffect(effect.getType()));
+        player.getActivePotionEffects().forEach(effect ->
+                player.removePotionEffect(effect.getType()));
     }
 
     private void giveKit(Player player, String gameMode) {
         com.pvparena.models.GameMode mode = plugin.getConfigManager().getGameMode(gameMode);
         if (mode == null) return;
-        
+
         Kit kit = plugin.getConfigManager().getKit(mode.getKitName());
         if (kit == null) return;
-        
+
         // Give armor
         ItemStack[] armor = new ItemStack[4];
         armor[3] = kit.getHelmet() != null ? new ItemStack(kit.getHelmet()) : null;
@@ -106,7 +116,7 @@ public class MatchManager {
         armor[1] = kit.getLeggings() != null ? new ItemStack(kit.getLeggings()) : null;
         armor[0] = kit.getBoots() != null ? new ItemStack(kit.getBoots()) : null;
         player.getInventory().setArmorContents(armor);
-        
+
         // Give items
         for (ItemStack item : kit.getItems()) {
             player.getInventory().addItem(item.clone());
@@ -115,24 +125,24 @@ public class MatchManager {
 
     private void startCountdown(Match match) {
         int countdown = plugin.getConfigManager().getCountdownDuration();
-        
+
         for (int i = countdown; i > 0; i--) {
             final int seconds = i;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 Player player1 = match.getPlayer1();
                 Player player2 = match.getPlayer2();
-                
+
                 if (player1 != null && player1.isOnline()) {
-                    player1.sendMessage(plugin.getConfigManager().getMessage("match-start", 
-                        "seconds", String.valueOf(seconds)));
+                    player1.sendMessage(plugin.getConfigManager().getMessage("match-start",
+                            "seconds", String.valueOf(seconds)));
                 }
                 if (player2 != null && player2.isOnline()) {
-                    player2.sendMessage(plugin.getConfigManager().getMessage("match-start", 
-                        "seconds", String.valueOf(seconds)));
+                    player2.sendMessage(plugin.getConfigManager().getMessage("match-start",
+                            "seconds", String.valueOf(seconds)));
                 }
             }, 20L * (countdown - i));
         }
-        
+
         // Start match after countdown
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             match.setState(Match.MatchState.ACTIVE);
@@ -160,8 +170,14 @@ public class MatchManager {
             loser.sendMessage(plugin.getConfigManager().getMessage("match-lost"));
         }
 
-        // Teleport players back
-        Location spawn = plugin.getConfigManager().getMainWorldSpawn();
+        // FIXED: Teleport players to world spawn at 0, 64, 0
+        Location spawn = new Location(
+                Bukkit.getWorlds().get(0), // Main world
+                0.5, // Center of block
+                64,
+                0.5  // Center of block
+        );
+
         if (player1 != null && player1.isOnline()) {
             player1.teleport(spawn);
             preparePlayer(player1);
@@ -171,10 +187,9 @@ public class MatchManager {
             preparePlayer(player2);
         }
 
-        // Set the loser to spectator mode and prevent respawning
+        // Remove spectator mode - both players should be in survival
         if (loser != null && loser.isOnline()) {
-            loser.setGameMode(GameMode.SPECTATOR);
-            loser.sendMessage(plugin.getConfigManager().getMessage("spectator-mode"));
+            loser.setGameMode(GameMode.SURVIVAL);
         }
 
         // Remove from tracking
@@ -211,7 +226,7 @@ public class MatchManager {
         if (match == null || match.getState() != Match.MatchState.ACTIVE) {
             return;
         }
-        
+
         Player winner = match.getPlayer1().equals(player) ? match.getPlayer2() : match.getPlayer1();
         endMatch(match, winner);
     }
@@ -221,7 +236,7 @@ public class MatchManager {
         if (match == null) {
             return;
         }
-        
+
         Player winner = match.getPlayer1().equals(player) ? match.getPlayer2() : match.getPlayer1();
         endMatch(match, winner);
     }
