@@ -1,0 +1,21 @@
+name: PVPArenaPlugin
+version: '1.0'
+main: com.pvparena.PVPArenaPlugin
+api-version: '1.20'
+author: YourName
+description: PVP Arena matchmaking system with dynamic arenas
+
+commands:
+  pvparena:
+    description: Main PVP Arena command
+    usage: /pvparena <reload|debug|give>
+    aliases: [pa, arena]
+    permission: pvparena.admin
+
+permissions:
+  pvparena.admin:
+    description: Admin permissions
+    default: op
+  pvparena.use:
+    description: Use the arena system
+    default: true

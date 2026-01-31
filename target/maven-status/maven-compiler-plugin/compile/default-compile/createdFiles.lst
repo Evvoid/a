@@ -1,0 +1,16 @@
+com\pvparena\PVPArenaPlugin.class
+com\pvparena\listeners\PlayerDeathListener.class
+com\pvparena\managers\ConfigManager.class
+com\pvparena\managers\ArenaManager$ArenaCoordinate.class
+com\pvparena\listeners\PlayerQuitListener.class
+com\pvparena\listeners\CompassClickListener.class
+com\pvparena\models\Kit.class
+com\pvparena\models\Match$MatchState.class
+com\pvparena\managers\QueueManager.class
+com\pvparena\gui\GameModeGUI.class
+com\pvparena\managers\ArenaManager.class
+com\pvparena\models\Match.class
+com\pvparena\listeners\ChatListener.class
+com\pvparena\models\GameMode.class
+com\pvparena\managers\MatchManager.class
+com\pvparena\models\Arena.class

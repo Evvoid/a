@@ -1,0 +1,113 @@
+# PVP Arena Plugin Configuration
+
+# Arena settings
+arena-spacing: 1000
+arena-cleanup-delay: 30
+countdown-duration: 3
+pvp-world-name: "pvp"
+
+# Main world spawn location
+main-world-spawn:
+  world: "world"
+  x: 0
+  y: 64
+  z: 0
+
+# Compass item
+compass-item:
+  name: "&c&lPVP Arena"
+  lore:
+    - "&7Right-click to open"
+    - "&7the game mode menu"
+
+# Game modes
+game-modes:
+  nodebuff:
+    display-name: "&c&lNo Debuff"
+    material: DIAMOND_SWORD
+    slot: 0
+    kit: "nodebuff"
+  uhc:
+    display-name: "&6&lUHC"
+    material: GOLDEN_APPLE
+    slot: 1
+    kit: "uhc"
+  combo:
+    display-name: "&e&lCombo"
+    material: IRON_SWORD
+    slot: 2
+    kit: "combo"
+
+# Kits configuration
+kits:
+  nodebuff:
+    armor:
+      helmet: DIAMOND_HELMET
+      chestplate: DIAMOND_CHESTPLATE
+      leggings: DIAMOND_LEGGINGS
+      boots: DIAMOND_BOOTS
+    items:
+      - type: DIAMOND_SWORD
+        amount: 1
+      - type: ENDER_PEARL
+        amount: 16
+      - type: SPLASH_POTION
+        amount: 36
+        potion-type: INSTANT_HEAL
+        potion-level: 2
+  uhc:
+    armor:
+      helmet: DIAMOND_HELMET
+      chestplate: DIAMOND_CHESTPLATE
+      leggings: DIAMOND_LEGGINGS
+      boots: DIAMOND_BOOTS
+    items:
+      - type: DIAMOND_SWORD
+        amount: 1
+      - type: BOW
+        amount: 1
+      - type: ARROW
+        amount: 64
+      - type: GOLDEN_APPLE
+        amount: 8
+  combo:
+    armor:
+      helmet: IRON_HELMET
+      chestplate: IRON_CHESTPLATE
+      leggings: IRON_LEGGINGS
+      boots: IRON_BOOTS
+    items:
+      - type: IRON_SWORD
+        amount: 1
+
+# Arena structure
+arena:
+  size: 50
+  floor-y: 64
+  spawn-points:
+    point1:
+      x: 15
+      y: 65
+      z: 0
+    point2:
+      x: -15
+      y: 65
+      z: 0
+  blocks:
+    floor:
+      material: STONE
+      y: 64
+    barrier:
+      material: BARRIER
+      height: 10
+
+# Messages
+messages:
+  queue-joined: "&aYou joined the queue for &f{gamemode}"
+  queue-left: "&cYou left the queue"
+  match-found: "&aMatch found! Teleporting..."
+  match-start: "&aMatch starting in {seconds} seconds!"
+  match-won: "&aYou won the match!"
+  match-lost: "&cYou lost the match!"
+  already-in-queue: "&cYou are already in a queue!"
+  already-in-match: "&cYou are already in a match!"
