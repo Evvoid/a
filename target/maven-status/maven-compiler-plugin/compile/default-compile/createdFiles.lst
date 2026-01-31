@@ -1,3 +1,4 @@
+com\pvparena\managers\SchematicManager$SchematicDimensions.class
 com\pvparena\PVPArenaPlugin.class
 com\pvparena\listeners\PlayerDeathListener.class
 com\pvparena\managers\ConfigManager.class
@@ -14,3 +15,4 @@ com\pvparena\listeners\ChatListener.class
 com\pvparena\models\GameMode.class
 com\pvparena\managers\MatchManager.class
 com\pvparena\models\Arena.class
+com\pvparena\managers\SchematicManager.class
